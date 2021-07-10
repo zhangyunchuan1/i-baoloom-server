@@ -11,7 +11,7 @@ module.exports = appInfo => {
    * @type {Egg.EggAppConfig}
    **/
   const config = exports = {};
-  
+  config.proxy = true;
   //数据库连接信息
   config.mysql = {
     // 单数据库信息配置
