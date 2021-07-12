@@ -144,6 +144,8 @@ class UserController extends Controller {
           }
           await this.app.redis.set('token_'+user.id,token);
           ctx.body = Http.response(200,data,'登录成功！');
+        }else{
+          ctx.body = Http.response(200,null,'验证码已失效！');
         }
       }else{
         ctx.body = Http.response(500,null,'用户不存在！');
