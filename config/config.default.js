@@ -38,6 +38,7 @@ module.exports = appInfo => {
    * await this.app.redis.set('name','123456789');
     let name = await this.app.redis.get('name');
     多个redis app.redis.get('xxxx').set('foo', 'bar');
+    删除key this.app.redis.del(`key`);
   */
   config.redis = {
     client: {
@@ -81,6 +82,8 @@ module.exports = appInfo => {
   const userConfig = {
     // myAppName: 'egg',
   };
+
+  config.uploadDir = 'app/uploadFile/images';
 
   return {
     ...config,

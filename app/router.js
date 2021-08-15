@@ -11,4 +11,5 @@ module.exports = app => {
   require('./router/user')(app);  //用户相关接口
   require('./router/article')(app);  //文章相关接口
   require('./router/color')(app);  //色卡相关接口
+  require('./router/tool')(app);  //工具相关接口
 };

@@ -1,7 +1,26 @@
 const Controller = require('egg').Controller;
 const Http = require('../utils/tools/http.js');
+const pump = require("pump");
+const fs = require("fs");
 
 class ArticleController extends Controller {
+  /**
+   * 根据类型查询文章列表
+   * @param type : String 文章板块
+   * @param sort : String 排序 【综合排序：all，最多观看:view，最新发布:createTime，最多评论:comment，最多收藏:collect】
+   * @param pageSize : number 每页条数 -默认10条
+   * @param page : number 当前页
+  */
+   async queryArticleByType() {
+    const ctx = this.ctx;
+    //校验参数是否缺少
+    let checkResult = Http.checkParams(ctx.request.body,{type:true,sort:true,page:true,pageSize:true});
+    if(!checkResult.status){
+      return ctx.body = Http.response(500,null,checkResult.message);
+    }
+    const data = await ctx.service.article.queryArticleByType(ctx.request.body);
+    return ctx.body = Http.response(200,data,'查询成功！');
+  }
   /**
    * 查询文章详情
    * @param id 文章唯一id
@@ -18,6 +37,14 @@ class ArticleController extends Controller {
     return ctx.body = Http.response(200,data,'查询成功！');
   }
   /**
+   * 查询文章类型
+  */
+   async articleType() {
+    const ctx = this.ctx;
+    const data = await ctx.service.article.articleType();
+    return ctx.body = Http.response(200,data,'查询成功！');
+  }
+  /**
    * 添加文章
    * @param title
    * @param content
@@ -25,7 +52,7 @@ class ArticleController extends Controller {
   async addArticle(){
     const ctx = this.ctx;
     //校验参数是否缺少
-    let checkResult = Http.checkParams(ctx.request.body,{title:true,content:true});
+    let checkResult = Http.checkParams(ctx.request.body,{title:true,content:true,type:true});
     if(!checkResult.status){
       return ctx.body = Http.response(500,null,checkResult.message);
     }
@@ -127,6 +154,34 @@ class ArticleController extends Controller {
       let res = await ctx.service.article.dislikeArtical({belong:ctx.request.body.id,createBy:userId});
       return res && (ctx.body = Http.response(200,null,'取消成功！'));
     }
+  }
+  /**
+   * 上传图片
+  */
+  async uploadImg(){
+  const { ctx } = this;
+  const parts = ctx.multipart({ autoFields: true });
+  let files = {};
+  let stream;
+  while ((stream = await parts()) != null) {
+    if(!stream.filename){
+      break;
+    }
+    const fieldname = stream.fieldname; // file表单的名字
+    // 上传图片的目录
+    const dir = await ctx.service.article.getUploadFile(stream.filename);
+    const target = dir.uploadDir;
+    const writeStream = fs.createWriteStream(target);
+    await pump(stream, writeStream);
+    files = Object.assign(files, {
+      [fieldname]: dir.saveDir
+    });
+  }
+  if(Object.keys(files).length > 0){
+    ctx.body = Http.response(200,files,'图片上传成功!')
+  }else{
+    ctx.body = Http.response(500,null,'图片上传失败!')
+  }
   }
 }
 

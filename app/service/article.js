@@ -1,8 +1,40 @@
 const Service = require('egg').Service;
 const uuid = require('uuid/v1');
 const moment = require('moment');
+const path = require("path");
+const sd = require('silly-datetime');
+const mkdirp = require('mkdirp');
 
 class ArticleService extends Service {
+  /**
+   * 根据类型查询文章列表
+  */
+   async queryArticleByType(params) {
+    let { type, sort, pageSize, page} = params;
+    //查询总条数
+    let total = await this.app.mysql.query(`
+      SELECT count(*)
+      FROM article
+      WHERE type = ${type}
+    `, type);
+    //查询符合条件的数据
+    let data = await this.app.mysql.query(`
+      SELECT a.* ,b.userName 
+      FROM article a 
+      JOIN user b ON a.createBy = b.id 
+      WHERE type = ${type} 
+      ${sort === 'all'?'order by a.createTime desc':'order by '+sort+' desc'} 
+      limit ${pageSize?pageSize:'10'} 
+      offset ${(page-1)*pageSize} 
+    `);
+
+    return {
+      data,
+      total:total[0]['count(*)'],
+      pageSize,
+      page
+    }
+  }
   /**
    * 查询文章详情
   */
@@ -17,14 +49,21 @@ class ArticleService extends Service {
     return data
   }
   /**
+   * 查询文章类型
+  */
+   async articleType() {
+    let data = await this.app.mysql.query(`SELECT * FROM config_article_type WHERE status = 1 order by sort ASC`);
+    return data
+  }
+  /**
    * 添加文章
   */
    async addArticle(params) {
-    let { title, content,createBy } = params;
+    let { title, content, createBy, type, cover } = params;
     //唯一ID
     const id = uuid();
     let createTime = moment().format('YYYY-MM-DD HH:mm:ss');
-    let result = await this.app.mysql.insert('article', {id,title,content,createTime,createBy});
+    let result = await this.app.mysql.insert('article', {id,title,content,createTime,createBy,type,cover});
     if(result.affectedRows != 1){
       return false
     }
@@ -124,6 +163,25 @@ class ArticleService extends Service {
       return true;
     }
     return false;
+  }
+  /**
+   * 获取文件上传目录
+   * @param {*} filename
+   */
+   async getUploadFile(filename) {
+    // 1.获取当前日期
+    let day = sd.format(new Date(), 'YYYYMMDD');
+    // 2.创建图片保存的路径
+    let dir = path.join(this.config.uploadDir, day);
+    await mkdirp(dir); // 不存在就创建目录
+    let date = Date.now(); // 毫秒数
+    // 返回图片保存的路径
+    let uploadDir = path.join(dir, date + path.extname(filename));
+    // app\public\avatar\upload\20200312\1536895331666.png
+    return {
+      uploadDir,
+      saveDir: this.ctx.origin + uploadDir.slice(3).replace(/\\/g, '/')
+    }
   }
 }
 module.exports = ArticleService;

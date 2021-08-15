@@ -20,54 +20,50 @@ class UserController extends Controller {
    * 注册用户
    * @param {string} userName 用户名
    * @param {string} password 密码
+   * @param {string} rePassword 重新密码
    * @param {string} email 邮箱
-   * @param {string} type 注册方式 1:用户名注册/2:邮箱注册
+   * @param {string} code 验证码
   */
   async register() {
     const ctx = this.ctx;
-    let { userName,password,email,type } = ctx.request.body;
+    let { userName,password,rePassword,email,code } = ctx.request.body;
     //校验参数是否缺少
-    let checkResult = Http.checkParams(ctx.request.body,{type:true,password:true});
+    let checkResult = Http.checkParams(ctx.request.body,{userName:true,password:true,rePassword:true,email:true,code:true});
     if(!checkResult.status){
       return ctx.body = Http.response(500,null,checkResult.message);
     }
-    //判断注册方式
-    if(type == '1'){  //用户名注册
-      let checkResult = Http.checkParams(ctx.request.body,{userName:true});
-      if(!checkResult.status){
-        return ctx.body = Http.response(500,null,checkResult.message);
-      }
-      //查重
-      let finduser = await ctx.service.user.findUserByName(userName);
-      if(finduser.length  <= 0){
-        let hashPassword = await bcrypt.hashSync(password, saltRounds);
-        let result  = await ctx.service.user.registerUser({ userName,password:hashPassword });
-        if(result){
-          return ctx.body = Http.response(200,null,'注册成功！');
-        }
-      }else{
-        return ctx.body = Http.response(500,null,'用户名已被占用！');
-      }
-    }else if(type == '2'){  //邮箱注册
-      let checkResult = Http.checkParams(ctx.request.body,{email:true});
-      if(!checkResult.status){
-        return ctx.body = Http.response(500,null,checkResult.message);
-      }
-      if(reg.test(email)){
-        //查重
-        let finduser = await ctx.service.user.findUserByEmail(email);
-        if(finduser.length  <= 0){
-          let hashPassword = await bcrypt.hashSync(password, saltRounds);
-          let result  = await ctx.service.user.registerUser({ email,password:hashPassword });
-          if(result){
-            return ctx.body = Http.response(200,null,'注册成功！');
-          }
-        }else{
-          return ctx.body = Http.response(500,null,'邮箱已被注册！');
-        }
-      }else{
-        return ctx.body = Http.response(500,null,'邮箱格式不正确！');
-      }
+    //用户名查重
+    let findUserByName = await ctx.service.user.findUserByName(userName);
+    if(findUserByName.length  > 0){
+      return ctx.body = Http.response(500,null,'用户名已被占用！');
+    }
+    //邮箱格式校验
+    if(!reg.test(email)){
+      return ctx.body = Http.response(500,null,'邮箱格式不正确！');
+    }
+    //邮箱查重
+    let findUserByEmail = await ctx.service.user.findUserByEmail(email);
+    if(findUserByEmail.length  > 0){
+      return ctx.body = Http.response(500,null,'邮箱已被注册！');
+    }
+    //密码校验
+    if(password != rePassword){
+      return ctx.body = Http.response(500,null,'两次输入密码不一致！');
+    }
+    //验证码是否有效
+    let redis_code = await this.app.redis.get(`register_code_${email}`);
+    if( !redis_code){
+      return ctx.body = Http.response(500,null,'请发送验证码！');
+    }else if(redis_code != code){
+      return ctx.body = Http.response(500,null,'验证码错误或已失效！');
+    }
+    //生成密码
+    let hashPassword = await bcrypt.hashSync(password, saltRounds);
+    let result  = await ctx.service.user.registerUser({ userName,email,password:hashPassword });
+    if(result){
+      // 删除已使用过的验证码
+      this.app.redis.del(`register_code_${email}`);
+      return ctx.body = Http.response(200,null,'注册成功！');
     }
   }
   /**
@@ -156,12 +152,16 @@ class UserController extends Controller {
    * 方法描述：注册-发送邮箱验证码
    * @param email 邮箱
    */
-   async sendEmailCode(){
+   async registerSendCode(){
     const { ctx } = this;
     const { email } = ctx.request.body;
     //参数校验
     let checkResult = Http.checkParams(ctx.request.body,{email:true});
     if(!checkResult.status){
+      return ctx.body = Http.response(500,null,checkResult.message);
+    }
+    //邮箱格式校验
+    if(!reg.test(email)){
       return ctx.body = Http.response(500,null,'邮箱格式错误！');
     }
     const users = await ctx.service.user.findUserByEmail(email);
@@ -171,9 +171,10 @@ class UserController extends Controller {
     }else{
       //未注册,生成6位验证码
       let emailCode = createSixNum();
-      await this.app.redis.set(email,emailCode,'EX', 30*60);  //验证码有效时间30分钟
-      sendEmail(email,emailCode)
-      ctx.body = result(null,'验证码已发送！',200);
+      await this.app.redis.set(`register_code_${email}`,emailCode,'EX', 30*60);  //验证码有效时间30分钟
+      let emailtemplate = `<b>您的注册验证码为：${emailCode}</b>`;
+      sendEmail(email,emailtemplate)
+      return ctx.body = Http.response(200,null,'验证码已发送！');
     }
   }
 
@@ -199,7 +200,8 @@ class UserController extends Controller {
       //已注册，生成验证码
       let emailCode = createSixNum();
       await this.app.redis.set(`login_code_${email}`,emailCode,'EX', 30*60);  //验证码有效时间30分钟
-      sendEmail(email,emailCode);
+      let emailtemplate = `<b>您的登录验证码为：${emailCode}</b>`;
+      sendEmail(email,emailtemplate)
       ctx.body = Http.response(200,null,'验证码已发送！');
     }else{
       //未注册

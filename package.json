@@ -17,6 +17,8 @@
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.29.1",
     "nodemailer": "^6.5.0",
+    "pump": "^3.0.0",
+    "silly-datetime": "^0.1.2",
     "uuid": "^3.3.3"
   },
   "devDependencies": {

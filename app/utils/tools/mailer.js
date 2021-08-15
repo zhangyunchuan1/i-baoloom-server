@@ -13,14 +13,14 @@ let transporter = nodemailer.createTransport({
     }
 });
 
-module.exports = function sendEmail(person,code){
+module.exports = function sendEmail(person,html){
   // 设置邮件内容（谁发送什么给谁）
   let mailOptions = {
     from: '"i-baoloom" <1028580665@qq.com>', // 发件人
     to: person, // 收件人
     subject: 'i-baoloom 验证码', // 主题
     text: '这是一封来自 i-baoloom 的验证邮件', // plain text body
-    html: `<b>您的验证码为：${code}</b>`, // html body
+    html: html, // html body  <b>您的验证码为：${code}</b>
     // 下面是发送附件，不需要就注释掉
     // attachments: [{
     //         filename: 'test.md',
