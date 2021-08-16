@@ -173,7 +173,6 @@ class ArticleService extends Service {
     let day = sd.format(new Date(), 'YYYYMMDD');
     // 2.创建图片保存的路径
     let dir = path.join(this.config.uploadDir, "images");
-    console.log('文件路径', dir)
     await mkdirp(dir); // 不存在就创建目录
     let date = Date.now(); // 毫秒数
     // 返回图片保存的路径
@@ -182,7 +181,7 @@ class ArticleService extends Service {
     // app\public\avatar\upload\20200312\1536895331666.png
     return {
       uploadDir,
-      saveDir: this.ctx.origin +"/uploadFile/"+ day+'-'+date + path.extname(filename)
+      saveDir: this.ctx.origin +"/"+ day+'-'+date + path.extname(filename)
     }
   }
 }
