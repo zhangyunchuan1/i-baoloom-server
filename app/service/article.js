@@ -181,7 +181,7 @@ class ArticleService extends Service {
     // app\public\avatar\upload\20200312\1536895331666.png
     return {
       uploadDir,
-      saveDir: this.ctx.origin +"/"+ day+'-'+date + path.extname(filename)
+      saveDir: this.ctx.origin +"/upload/"+ day+'-'+date + path.extname(filename)
     }
   }
 }
