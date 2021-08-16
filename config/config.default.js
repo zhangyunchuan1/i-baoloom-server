@@ -83,7 +83,7 @@ module.exports = appInfo => {
     // myAppName: 'egg',
   };
 
-  config.uploadDir = 'app/uploadFile/images';
+  config.uploadDir = '/usr/local/nginx/html/uploadFile';
 
   return {
     ...config,

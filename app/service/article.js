@@ -172,15 +172,17 @@ class ArticleService extends Service {
     // 1.获取当前日期
     let day = sd.format(new Date(), 'YYYYMMDD');
     // 2.创建图片保存的路径
-    let dir = path.join(this.config.uploadDir, day);
+    let dir = path.join(this.config.uploadDir, "images");
+    console.log('文件路径', dir)
     await mkdirp(dir); // 不存在就创建目录
     let date = Date.now(); // 毫秒数
     // 返回图片保存的路径
-    let uploadDir = path.join(dir, date + path.extname(filename));
+    let uploadDir = path.join(dir, day+'-'+date + path.extname(filename));
+    console.log('文件路径----', uploadDir)
     // app\public\avatar\upload\20200312\1536895331666.png
     return {
       uploadDir,
-      saveDir: this.ctx.origin + uploadDir.slice(3).replace(/\\/g, '/')
+      saveDir: this.ctx.origin +"/uploadFile/"+ day+'-'+date + path.extname(filename)
     }
   }
 }

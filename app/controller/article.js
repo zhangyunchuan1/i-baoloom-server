@@ -172,6 +172,7 @@ class ArticleController extends Controller {
     const dir = await ctx.service.article.getUploadFile(stream.filename);
     const target = dir.uploadDir;
     const writeStream = fs.createWriteStream(target);
+    console.log('666666666:', dir.saveDir)
     await pump(stream, writeStream);
     files = Object.assign(files, {
       [fieldname]: dir.saveDir
