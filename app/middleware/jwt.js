@@ -18,7 +18,6 @@ module.exports = (app) => {
         //获取根据token中的用户id去redis中的查找token
         const redis_token = await app.redis.get('token_'+decoded.id);
         if (authToken === redis_token) {
-          console.log('1223123123123123123123', decoded.id)
           ctx.locals.userid = decoded.id
           await next()
         } else {

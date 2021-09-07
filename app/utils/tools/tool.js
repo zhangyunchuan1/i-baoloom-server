@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken'); 
 /**
  * 去除字符串中所有空格
 */
@@ -17,7 +18,28 @@ const createSixNum = function(){
   }
   return Num;
 }
+/**
+* 解密token，获取用户Id
+*/
+const jwtToken = (authToken) => {
+  let userId = "";
+  if(authToken){
+    let decoded = null;
+    try {
+      //解密token
+      decoded = jwt.verify(authToken, 'anyStr',{ expiresIn: '1h' });
+      if(decoded){
+        userId = decoded.id
+      }
+    } catch (error) {}
+  }
+  return userId;
+}
+
 module.exports = {
   removeSpace,
-  createSixNum
+  createSixNum,
+  jwtToken
 }
+
+

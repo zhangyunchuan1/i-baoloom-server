@@ -1,5 +1,6 @@
 const Controller = require('egg').Controller;
 const Http = require('../utils/tools/http.js');
+const { jwtToken } = require('../utils/tools/tool.js');
 const pump = require("pump");
 const fs = require("fs");
 
@@ -34,7 +35,35 @@ class ArticleController extends Controller {
     }
     let { id } = ctx.request.body;
     const data = await ctx.service.article.articalDetail(id);
-    return ctx.body = Http.response(200,data,'查询成功！');
+    //添加文章作者的访问量
+    ctx.service.user.addVisits(data[0].createBy);
+    //查询文章作者信息
+    let ArticleUserInfo = await ctx.service.user.findUserById(data[0].createBy);
+    data[0].userInfo = ArticleUserInfo[0];
+    //查询文章作者的关注数量
+    let fansNum = await ctx.service.user.getFansNum(data[0].createBy);
+    data[0].userInfo.fansNum = fansNum;
+    let userId = jwtToken(ctx.header.token);
+    if(userId){
+      // 登录了，判断用户是否点赞
+      let hasLike = await ctx.service.article.getIsLike({belong:ctx.request.body.id,createBy: userId});
+      if(hasLike){
+        data[0].liked = true;
+      }else{
+        data[0].liked = false;
+      }
+      // 登录了，判断用户是否被关注
+      let hasFollow = await ctx.service.user.getIsFollow({belong:data[0].createBy, createBy: userId});
+      if(hasFollow){
+        data[0].followed = true;
+      }else{
+        data[0].followed = false;
+      }
+    }else{
+      data[0].liked = false;
+      data[0].followed = false;
+    }
+    return ctx.body = Http.response(200,data[0],'查询成功！');
   }
   /**
    * 查询文章类型
@@ -86,6 +115,7 @@ class ArticleController extends Controller {
    * @param content
    * @param belong  文章id
    * @param parant  文章id/评论id
+   * @param createTo  评论目标人/回复目标人
   */
    async comment(){
     const ctx = this.ctx;
@@ -113,9 +143,11 @@ class ArticleController extends Controller {
     let _data = [];
     data.forEach(item => {
       if(item.parant === this.ctx.request.body.belong){
+        item.type = "1";  //一级评论
         let children = [];
         data.forEach(ele => {
           if(ele.parant === item.id){
+            ele.type = "2";  //二级回复
             children.push(ele);
           }
         });
@@ -131,11 +163,12 @@ class ArticleController extends Controller {
    * 文章点赞
    * @param id 文章id
    * @param type {String} 1:点赞/2:取消点赞
+   * @param likeType {String} 点赞类型：article-文章，后续会添加其他的类型
   */
    async likeOrDislikeArticle(){
     const ctx = this.ctx;
     //校验参数是否缺少
-    let checkResult = Http.checkParams(ctx.request.body,{id:true,type:true});
+    let checkResult = Http.checkParams(ctx.request.body,{id:true,type:true,likeType: true});
     if(!checkResult.status){
       return ctx.body = Http.response(500,null,checkResult.message);
     }
@@ -143,15 +176,24 @@ class ArticleController extends Controller {
     const userId = ctx.locals.userid;
     if(ctx.request.body.type == '1'){  //点赞
       //用户是否已经点过赞
-      let hasLike = await ctx.service.article.getIsLike({...ctx.request.body,userId});
+      let hasLike = await ctx.service.article.getIsLike({belong:ctx.request.body.id, createBy: userId});
       if(hasLike){
         return ctx.body = Http.response(200,null,'您已点赞！');
       }else{  //未点赞，添加点赞记录
-        let res = await ctx.service.article.likeArtical({...ctx.request.body,userId});
-        return res && (ctx.body = Http.response(200,null,'点赞成功！'));
+        let hasRecord = await ctx.service.article.getHasLike({belong:ctx.request.body.id, createBy: userId});
+        if(hasRecord){
+          //有记录，直接更新状态
+          let res = await ctx.service.article.updatelikeArtical({isLike: "1", belong:ctx.request.body.id,createBy:userId});
+          return res && (ctx.body = Http.response(200,null,'点赞成功！'));
+        }else{
+          //无记录，插入新记录
+          let res = await ctx.service.article.insertLikeArtical({...ctx.request.body,userId});
+          return res && (ctx.body = Http.response(200,null,'点赞成功！'));
+        }
+        
       }
     }else if(ctx.request.body.type == '2'){  //取消点赞
-      let res = await ctx.service.article.dislikeArtical({belong:ctx.request.body.id,createBy:userId});
+      let res = await ctx.service.article.updatelikeArtical({isLike: "2", belong:ctx.request.body.id,createBy:userId});
       return res && (ctx.body = Http.response(200,null,'取消成功！'));
     }
   }

@@ -208,6 +208,26 @@ class UserController extends Controller {
       return ctx.body = Http.response(500,null,'邮箱未注册！');
     }
   }
+  /**
+   * 关注用户
+   * @param { id } string 被关注人的id
+   * @param { type } string 1:关注 2:取消关注
+  */
+  async followUser(){
+    const { ctx } = this;
+    const { id, type } = ctx.request.body;
+    //参数校验
+    let checkResult = Http.checkParams(ctx.request.body,{id:true, type: true});
+    if(!checkResult.status){
+      return ctx.body = Http.response(500,null,checkResult.message);
+    }
+    const result = await ctx.service.user.followUser({userId:id, type, createBy: ctx.locals.userid});
+    if(result){
+      ctx.body = Http.response(200,null,'操作成功！');
+    }else{
+      ctx.body = Http.response(500,null,'操作失败！');
+    }
+  }
 }
 
 module.exports = UserController;

@@ -19,7 +19,7 @@ class ArticleService extends Service {
     `, type);
     //查询符合条件的数据
     let data = await this.app.mysql.query(`
-      SELECT a.* ,b.userName 
+      SELECT a.* ,b.userName, b.avatar
       FROM article a 
       JOIN user b ON a.createBy = b.id 
       WHERE type = ${type} 
@@ -40,11 +40,24 @@ class ArticleService extends Service {
   */
   async articalDetail(id) {
     //文章详情
-    let data = await this.app.mysql.query(`SELECT * FROM article WHERE id = ?`,id);
+    let data = await this.app.mysql.query(`
+      SELECT a.*, b.userName 
+      FROM article a 
+      JOIN user b  
+      ON a.createBy = b.id AND a.id = ?
+    `, id);
     // 点赞数
     let likes = await this.app.mysql.query(`SELECT isLike FROM likes WHERE belong = ? AND isLike = '1'`,id);
     if(data.length == 1){
       data[0].likes = likes.length;
+      //记录添加浏览次数
+      this.app.mysql.update('article', {
+        views: data[0].views+1,
+      }, {
+        where: {
+          id: id
+        }
+      });
     }
     return data
   }
@@ -114,32 +127,37 @@ class ArticleService extends Service {
     let { belong } = params;
     let data = await this.app.mysql.query(`
     SELECT a.* , 
-    (SELECT b.userName FROM user b WHERE a.createBy = b.id) AS createByName ,
-    (SELECT c.userName FROM user c WHERE a.createTo = c.id) AS createToName 
+    (SELECT b.userName FROM user b WHERE a.createBy = b.id) AS createByName,
+    (SELECT b.avatar FROM user b WHERE a.createBy = b.id) AS createByAvatar,
+    (SELECT c.userName FROM user c WHERE a.createTo = c.id) AS createToName,
+    (SELECT c.avatar FROM user c WHERE a.createTo = c.id) AS createToAvatar 
     FROM comment a
     WHERE a.belong = ? 
     Order By a.createTime ASC`,belong);
     return data;
   }
+
+  //(SELECT b.userName AS createByName, b.avatar AS createByAvatar FROM user b WHERE a.createBy = b.id) ,
+  //(SELECT c.userName AS createToName, c.avatar AS createToAvatar FROM user c WHERE a.createTo = c.id)  
   /**
-   * 文章点赞
+   * 文章点赞-插入
   */
-  async likeArtical(params) {
-    let { id, userId } = params;
+  async insertLikeArtical(params) {
+    let { id, userId, likeType } = params;
     const uid = uuid();
     let createTime = moment().format('YYYY-MM-DD HH:mm:ss');
-    let result = await this.app.mysql.insert('likes', {id:uid,belong:id,createTime,createBy:userId,isLike:'1'});
+    let result = await this.app.mysql.insert('likes', {id:uid,belong:id,createTime,createBy:userId,isLike:'1',likeType});
     if(result.affectedRows != 1){
       return false
     }
     return true
   }
   /**
-   * 取消文章点赞
+   * 更新文章点赞状态
   */
-   async dislikeArtical(params) {
-    let { belong, createBy } = params;
-    let result = await this.app.mysql.query(`UPDATE likes SET isLike = '2' WHERE belong = ? AND createBy = ?`,[belong,createBy]);
+   async updatelikeArtical(params) {
+    let { isLike, belong, createBy } = params;
+    let result = await this.app.mysql.query(`UPDATE likes SET isLike = ? WHERE belong = ? AND createBy = ?`,[isLike, belong,createBy]);
     if(result.affectedRows != 1){
       return false
     }
@@ -157,9 +175,20 @@ class ArticleService extends Service {
    * 获取文章-用户是否点赞
   */
    async getIsLike(params) {
-    let { id,createBy } = params;
-    let data = await this.app.mysql.query(`SELECT * FROM likes WHERE id = ? AND createBy = ?;`,[id,createBy]);
+    let { belong,createBy } = params;
+    let data = await this.app.mysql.query(`SELECT * FROM likes WHERE belong = ? AND createBy = ?;`,[belong,createBy]);
     if(data.length > 0 && data[0].isLike == '1'){
+      return true;
+    }
+    return false;
+  }
+  /**
+   * 获取文章-用户是否有点赞记录
+  */
+   async getHasLike(params) {
+    let { belong,createBy } = params;
+    let data = await this.app.mysql.query(`SELECT * FROM likes WHERE belong = ? AND createBy = ?;`,[belong,createBy]);
+    if(data.length > 0){
       return true;
     }
     return false;
