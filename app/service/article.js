@@ -4,6 +4,7 @@ const moment = require('moment');
 const path = require("path");
 const sd = require('silly-datetime');
 const mkdirp = require('mkdirp');
+const mysql = require('mysql');
 
 class ArticleService extends Service {
   /**
@@ -99,8 +100,17 @@ class ArticleService extends Service {
    * 编辑文章
   */
    async editArticle(params) {
-    let { title, content, id } = params;
-    let result = await this.app.mysql.query(`UPDATE article SET title = ? ,content = ?  WHERE id = ? ;`, [title,content,id]);
+    let { title, content, id, cover, type } = params;
+    let result = await this.app.mysql.update('article', {
+      title: title,
+      content: mysql.escape(content),
+      cover: cover,
+      type: type
+    }, {
+      where: {
+        id: id
+      }
+    });
     if(result.affectedRows != 1){
       return false
     }
@@ -211,6 +221,46 @@ class ArticleService extends Service {
     return {
       uploadDir,
       saveDir: this.ctx.origin +"/upload/"+ day+'-'+date + path.extname(filename)
+    }
+  }
+  /**
+   * 查询我的文章列表
+   * status 1: 公开， 2:私密 ，3:草稿 ，4:删除
+  */
+   async queryMyArticleList(params) {
+    let {id, type, status, year, mouth, sort, pageSize, page} = params;
+    //查询总条数
+    let total = await this.app.mysql.query(`
+      SELECT count(*)
+      FROM article 
+      WHERE createBy = "${id}" 
+      ${type != "0" ? "AND type = "+ type : ""} 
+      ${status != "0" ? (type != "0" ? "AND " : "") + "status = "+ status : ""} 
+      ${year != "0" && mouth == "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime) = " + year : ""}
+      ${mouth != "0" && year == "0" ? (status != "0" ? " AND " : "") + "MONTH(createTime) = " + mouth : ""}
+      ${year != "0" && mouth != "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime)="+year+" and month(createTime)="+ mouth : ""}
+    `);
+    //查询符合条件的数据  a.id, a.title, a.type, a.createTime, a.views, a.status, 
+    let data = await this.app.mysql.query(`
+      SELECT a.*,
+      (SELECT COUNT(*) FROM comment b WHERE b.belong = a.id AND b.parant = a.id) AS comments
+      FROM article a
+      WHERE createBy = "${id}"
+      ${type != "0" ? " AND type = "+ type : ""} 
+      ${status != "0" ? (type != "0" ? " AND " : "" )+ "status = "+ status : ""} 
+      ${year != "0" && mouth == "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime) = " + year : ""}
+      ${mouth != "0" && year == "0" ? (status != "0" ? " AND " : "") + "MONTH(createTime) = " + mouth : ""}
+      ${year != "0" && mouth != "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime)="+year+" and month(createTime)="+ mouth : ""}
+      ${sort === 'all'?'order by a.createTime desc':'order by '+sort+' desc'} 
+      limit ${pageSize?pageSize:'10'} 
+      offset ${(page-1)*pageSize} 
+    `);
+
+    return {
+      data,
+      total:total[0]['count(*)'],
+      pageSize,
+      page
     }
   }
 }

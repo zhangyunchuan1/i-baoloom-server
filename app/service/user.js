@@ -29,13 +29,15 @@ class UserService extends Service {
   */
    async findUserById(id) {
     let data = await this.app.mysql.query(`
-      SELECT id, userName, avatar, visits, 
-      (SELECT COUNT(*) FROM article WHERE createBy = ?) AS articleTotal
+      SELECT id, userName, avatar, visits, email, introduce, 
+      (SELECT COUNT(*) FROM article WHERE createBy = ?) AS articleTotal,
+      (SELECT COUNT(*) FROM fans WHERE belong = ?) AS fansNum,
+      (SELECT COUNT(*) FROM fans WHERE createBy = ?) AS followNum
       FROM user 
       WHERE id = ?
-    `,[id, id]);
+    `,[id, id, id, id]);
     console.log('查询结果',data)
-    return data
+    return data[0]
   }
   /**
    * 注册用户

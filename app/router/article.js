@@ -11,4 +11,5 @@ module.exports = app => {
   router.post('/article/getComment', controller.article.getComment);
   router.post('/article/likeOrDislike', jwt, controller.article.likeOrDislikeArticle);
   router.post('/article/uploadImg', controller.article.uploadImg);
+  router.post('/article/queryMyArticleList', jwt, controller.article.queryMyArticleList);
 };

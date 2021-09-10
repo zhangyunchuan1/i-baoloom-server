@@ -39,7 +39,7 @@ class ArticleController extends Controller {
     ctx.service.user.addVisits(data[0].createBy);
     //查询文章作者信息
     let ArticleUserInfo = await ctx.service.user.findUserById(data[0].createBy);
-    data[0].userInfo = ArticleUserInfo[0];
+    data[0].userInfo = ArticleUserInfo;
     //查询文章作者的关注数量
     let fansNum = await ctx.service.user.getFansNum(data[0].createBy);
     data[0].userInfo.fansNum = fansNum;
@@ -97,7 +97,7 @@ class ArticleController extends Controller {
    async editArticle(){
     const ctx = this.ctx;
     //校验参数是否缺少
-    let checkResult = Http.checkParams(ctx.request.body,{title:true,content:true,id:true});
+    let checkResult = Http.checkParams(ctx.request.body,{title:true, content:true, id:true, type:true});
     if(!checkResult.status){
       return ctx.body = Http.response(500,null,checkResult.message);
     }
@@ -201,29 +201,49 @@ class ArticleController extends Controller {
    * 上传图片
   */
   async uploadImg(){
-  const { ctx } = this;
-  const parts = ctx.multipart({ autoFields: true });
-  let files = {};
-  let stream;
-  while ((stream = await parts()) != null) {
-    if(!stream.filename){
-      break;
+    const { ctx } = this;
+    const parts = ctx.multipart({ autoFields: true });
+    let files = {};
+    let stream;
+    while ((stream = await parts()) != null) {
+      if(!stream.filename){
+        break;
+      }
+      const fieldname = stream.fieldname; // file表单的名字
+      // 上传图片的目录
+      const dir = await ctx.service.article.getUploadFile(stream.filename);
+      const target = dir.uploadDir;
+      const writeStream = fs.createWriteStream(target);
+      await pump(stream, writeStream);
+      files = Object.assign(files, {
+        [fieldname]: dir.saveDir
+      });
     }
-    const fieldname = stream.fieldname; // file表单的名字
-    // 上传图片的目录
-    const dir = await ctx.service.article.getUploadFile(stream.filename);
-    const target = dir.uploadDir;
-    const writeStream = fs.createWriteStream(target);
-    await pump(stream, writeStream);
-    files = Object.assign(files, {
-      [fieldname]: dir.saveDir
-    });
+    if(Object.keys(files).length > 0){
+      ctx.body = Http.response(200,files,'图片上传成功!')
+    }else{
+      ctx.body = Http.response(500,null,'图片上传失败!')
+    }
   }
-  if(Object.keys(files).length > 0){
-    ctx.body = Http.response(200,files,'图片上传成功!')
-  }else{
-    ctx.body = Http.response(500,null,'图片上传失败!')
-  }
+  /**
+   * 查询我的文章列表
+   * @param type : String 文章板块
+   * @param sort : String 排序 【综合排序：all，最多观看:view，最新发布:createTime，最多评论:comment，最多收藏:collect】
+   * @param status : String 文章状态
+   * @param year : String 创建年
+   * @param mouth : String 创建月
+   * @param pageSize : number 每页条数 -默认10条
+   * @param page : number 当前页
+  */
+  async queryMyArticleList() {
+    const ctx = this.ctx;
+    //校验参数是否缺少
+    let checkResult = Http.checkParams(ctx.request.body,{type:true,sort:true,status: true,page:true,pageSize:true});
+    if(!checkResult.status){
+      return ctx.body = Http.response(500,null,checkResult.message);
+    }
+    const data = await ctx.service.article.queryMyArticleList({...ctx.request.body, id:ctx.locals.userid});
+    return ctx.body = Http.response(200,data,'查询成功！');
   }
 }
 

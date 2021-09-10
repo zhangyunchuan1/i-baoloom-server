@@ -228,6 +228,15 @@ class UserController extends Controller {
       ctx.body = Http.response(500,null,'操作失败！');
     }
   }
+
+  /**
+   * 个人中心查询自己的个人信息
+  */
+  async queryMyUserInfo(){
+    const { ctx } = this;
+    let userInfo = await ctx.service.user.findUserById(ctx.locals.userid);
+    ctx.body = Http.response(200,userInfo,'查询成功！');
+  }
 }
 
 module.exports = UserController;
