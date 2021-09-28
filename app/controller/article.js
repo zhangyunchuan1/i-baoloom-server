@@ -245,6 +245,28 @@ class ArticleController extends Controller {
     const data = await ctx.service.article.queryMyArticleList({...ctx.request.body, id:ctx.locals.userid});
     return ctx.body = Http.response(200,data,'查询成功！');
   }
+  /**
+   * 更新文章状态
+   * @param {string} status 1: 公开， 2:私密 ，3:草稿 ，4:删除
+   * @param {string} id 文字id
+  */
+  async updateArticleStatus() {
+    const ctx = this.ctx;
+    //校验参数是否缺少
+    let checkResult = Http.checkParams(ctx.request.body,{status: true, id: true});
+    if(!checkResult.status){
+      return ctx.body = Http.response(500,null,checkResult.message);
+    }
+    //文章创建者和修改者是否一致
+    let articalforUserId = await ctx.service.article.findArticleUserId({id:ctx.request.body.id});
+    console.log(ctx.locals.userid, articalforUserId);
+    if(ctx.locals.userid === articalforUserId){
+      const data = await ctx.service.article.updateArticleStatus({...ctx.request.body});
+      return  data && (ctx.body = Http.response(200,null,'修改成功！'));
+    }else{
+      return ctx.body = Http.response(500,null,'没有权限');
+    }
+  }
 }
 
 module.exports = ArticleController;

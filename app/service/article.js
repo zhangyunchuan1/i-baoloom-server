@@ -71,13 +71,14 @@ class ArticleService extends Service {
   }
   /**
    * 添加文章
+   * 默认添加的公开
   */
    async addArticle(params) {
     let { title, content, createBy, type, cover } = params;
     //唯一ID
     const id = uuid();
     let createTime = moment().format('YYYY-MM-DD HH:mm:ss');
-    let result = await this.app.mysql.insert('article', {id,title,content,createTime,createBy,type,cover});
+    let result = await this.app.mysql.insert('article', {id,title,content,createTime,createBy,type,cover,status:"1"});
     if(result.affectedRows != 1){
       return false
     }
@@ -103,7 +104,7 @@ class ArticleService extends Service {
     let { title, content, id, cover, type } = params;
     let result = await this.app.mysql.update('article', {
       title: title,
-      content: mysql.escape(content),
+      content: content,
       cover: cover,
       type: type
     }, {
@@ -147,8 +148,6 @@ class ArticleService extends Service {
     return data;
   }
 
-  //(SELECT b.userName AS createByName, b.avatar AS createByAvatar FROM user b WHERE a.createBy = b.id) ,
-  //(SELECT c.userName AS createToName, c.avatar AS createToAvatar FROM user c WHERE a.createTo = c.id)  
   /**
    * 文章点赞-插入
   */
@@ -234,11 +233,11 @@ class ArticleService extends Service {
       SELECT count(*)
       FROM article 
       WHERE createBy = "${id}" 
-      ${type != "0" ? "AND type = "+ type : ""} 
-      ${status != "0" ? (type != "0" ? "AND " : "") + "status = "+ status : ""} 
-      ${year != "0" && mouth == "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime) = " + year : ""}
-      ${mouth != "0" && year == "0" ? (status != "0" ? " AND " : "") + "MONTH(createTime) = " + mouth : ""}
-      ${year != "0" && mouth != "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime)="+year+" and month(createTime)="+ mouth : ""}
+      ${type != "0" ? " AND type = "+ type : ""} 
+      ${status != "0" ? " AND status = "+ status : ""} 
+      ${year != "0" && mouth == "0" ? " AND YEAR(createTime) = " + year : ""}
+      ${mouth != "0" && year == "0" ? " AND MONTH(createTime) = " + mouth : ""}
+      ${year != "0" && mouth != "0" ? "AND YEAR(createTime)="+year+" AND month(createTime)="+ mouth : ""}
     `);
     //查询符合条件的数据  a.id, a.title, a.type, a.createTime, a.views, a.status, 
     let data = await this.app.mysql.query(`
@@ -247,10 +246,10 @@ class ArticleService extends Service {
       FROM article a
       WHERE createBy = "${id}"
       ${type != "0" ? " AND type = "+ type : ""} 
-      ${status != "0" ? (type != "0" ? " AND " : "" )+ "status = "+ status : ""} 
-      ${year != "0" && mouth == "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime) = " + year : ""}
-      ${mouth != "0" && year == "0" ? (status != "0" ? " AND " : "") + "MONTH(createTime) = " + mouth : ""}
-      ${year != "0" && mouth != "0" ? (status != "0" ? " AND " : "") + "YEAR(createTime)="+year+" and month(createTime)="+ mouth : ""}
+      ${status != "0" ? "AND status = "+ status : ""} 
+      ${year != "0" && mouth == "0" ? " AND YEAR(createTime) = " + year : ""}
+      ${mouth != "0" && year == "0" ? " AND MONTH(createTime) = " + mouth : ""}
+      ${year != "0" && mouth != "0" ? "AND YEAR(createTime)="+year+" AND month(createTime)="+ mouth : ""}
       ${sort === 'all'?'order by a.createTime desc':'order by '+sort+' desc'} 
       limit ${pageSize?pageSize:'10'} 
       offset ${(page-1)*pageSize} 
@@ -262,6 +261,23 @@ class ArticleService extends Service {
       pageSize,
       page
     }
+  }
+  /**
+   * 更新文章状态
+  */
+   async updateArticleStatus(params) {
+    let { id, status } = params;
+    let result = await this.app.mysql.update('article', {
+      status: status
+    }, {
+      where: {
+        id: id
+      }
+    });
+    if(result.affectedRows != 1){
+      return false
+    }
+    return true
   }
 }
 module.exports = ArticleService;
